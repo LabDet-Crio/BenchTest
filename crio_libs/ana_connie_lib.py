@@ -40,49 +40,30 @@ def GetSingleCCDImage(hdul,LTA_channel,ColInit,NCOL,step,NrOfMCMs):
 
 
 # ------------------------------------------------------------------------------
-# 
-# def Noise(h, overscan_mask, iMCM, nCCDs, dataOK=True, doPlot=False, pdfname='noise'):
-#     noise = []
-#     ANSAMP=h[1].header["ANSAMP"]
-#     plt.figure(figsize=(24,24))
-#     plt.xticks(fontsize=13)
-#     plt.yticks(fontsize=13)
-#     plt.title("MCM {:d}".format(iMCM), fontsize=18)
-#     for i in range(nCCDs):
-#         #if dataOK[i]:
-#         if dataOK:
-#             plt.subplot(4,4,i+1)
-#             y,xb=np.histogram(h[i+1].data[overscan_mask].flatten(), bins=np.linspace(-250,250,200))
-#             x=(xb[1:]+xb[:-1])/2
-#             plt.plot(x,y,label='MCM {:d} – ohdu = {:d}'.format(iMCM,i+1))
-#             # gaussian fit
-#             try:
-#                 popt,pcov=curve_fit(gaussian1,x,y,p0=[0,50,1000])
-#                 plt.plot(x,gaussian1(x,*popt),label="Gauss Fit $\sigma$: {:.3f} ADUs".format(popt[1]))
-#                 noise.append(popt[1])
-#             except RuntimeError:
-#                 print("Error - gain fit on noiseFun failed" + pdfname)
-#                 noise.append(-1)
-#             plt.legend(fontsize=13)
-#             plt.title('ANSAMP '+ANSAMP)
-#             plt.xlabel("Charge [ADUs]",fontsize=12)
-#             plt.yscale("log")
-#             plt.ylabel("Entries",fontsize=12)
-            
-#         else: noise.append(-1)
-#     # to save the plot
-#     #pdf_filename = f'noise_'+pdfname+'_{iMCM+1}.pdf'i
-#     if doPlot:
-#         #pdf_filename = f'noise_{pdfname}.pdf'
-#         #plt.savefig(pdf_filename, format='pdf')
-        
-#         plt.show()
-#     elif doPlot == False:
-#         plt.close()
-#     else:
-#         plt.close()
-#     return noise
-# ------------------------------------------------------------------------------
+#
+# ---- To compute the baseline evolution in function of the row number
+def Baseline(h, overscan_mask, iMCM, nCCDs, doPlot, pdfname):
+    mediana = []
+    plt.figure(figsize=(15,6))
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    for i in range(0,nCCDs):
+        m = np.median(h[i+1].data[overscan_mask], axis=1,keepdims=True)
+        mediana.append(m)
+        x = np.arange(len(m))
+        plt.plot(x,m-m[0],label='ohdu = {:d} - ref = {}'.format(i+1,m[0]))
+        plt.xlim(0,len(m)*1.30)
+        plt.xlabel('iROW', fontsize=14)
+        plt.ylabel('Baseline (ADUs)', fontsize=14)
+        plt.title('MCM {:d}'.format(iMCM),fontsize=16)
+        plt.legend(fontsize=12)
+    # to save the plot
+    if doPlot:
+        pdf_filename = f'baseline_{pdfname}.pdf'
+        plt.savefig(pdf_filename, format='pdf')
+    plt.close()
+    return mediana
+# ---- To compute the Noise in a region-----------------------------------------
 def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
     noise = []
     ANSAMP=h[1].header["ANSAMP"]
@@ -132,7 +113,7 @@ def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
     else:
         plt.close()
     return noise
-
+# ---- To compute the gain of the image-----------------------------------------
 def Gain(h, active_mask, iMCM, nCCDs, dataOK=True, doPlot=False, pdfname='gain'):
     gain = []
 
@@ -182,8 +163,7 @@ def Gain(h, active_mask, iMCM, nCCDs, dataOK=True, doPlot=False, pdfname='gain')
     #         x=(xb[1:]+xb[:-1])/2
     #         plt.plot(x,y,label='MCM {:d} – ohdu = {:d}'.format(iMCM,i+1))
     #         # gaussian2 fit
-# ------------------------------------------------------------------------------
-
+# ---- To compute Single electron rate------------------------------------------
 def Ser(h, active_mask, iMCM, nCCDs, dataOK, gain, doPlot, pdfname, itera=10, thr=5):
     ser = []
     plt.figure(figsize=(24,24))
@@ -191,7 +171,7 @@ def Ser(h, active_mask, iMCM, nCCDs, dataOK, gain, doPlot, pdfname, itera=10, th
     plt.yticks(fontsize=13)
     plt.title("MCM {:d}".format(iMCM), fontsize=18)
     for i in range(nCCDs):
-        if dataOK:
+        if True:
             data = h[i+1].data/gain[i]
             event_mask = data > thr
             event_halo_mask = ndimage.binary_dilation(
@@ -223,7 +203,24 @@ def Ser(h, active_mask, iMCM, nCCDs, dataOK, gain, doPlot, pdfname, itera=10, th
     # to save the ploti
     if doPlot:
         pdf_filename = f'ser_{pdfname}.pdf'
-        plt.savefig(pdf_filename, format='pdf')
-    plt.close()
+        #plt.savefig(pdf_filename, format='pdf')
+    plt.show()
     return ser
 # -------------------------------------------------------------------------
+
+def plotHistogram(data):
+    histo, bins_edges = np.histogram(data,bins='fd',range=(-200,300))
+    class_marks = (bins_edges[:-1]+bins_edges[1:])/2
+    #plt.hist(class_marks,bins=bins_edges,weights=histo)
+    plt.bar(class_marks,histo)
+    plt.yscale('log')
+    return histo, bins_edges, class_marks
+
+def histoFit(hdu, ext, region, porDefecto=[0,3,1500, 44, 100]): #data, mean, stdDev, h1, gain, h2
+    hist,bins,class_mark=plotHistogram(hdu[ext].data[region].flatten())#, range=(median-200,median+200) )
+    plt.ylim(1,25e3)
+    popt,pcov=curve_fit(gaussian2,class_mark,hist,p0=porDefecto) 
+    #popt=abs(popt)
+    plt.plot(class_mark,gaussian2(class_mark,*abs(popt),linewidth=1,c='r', label=r'$\sigma$={:.2f}  gain={:.2f}'.format(popt[1],popt[3])))
+
+
