@@ -72,34 +72,23 @@ def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
     i=0
     for ncol in axs:
        for nrow in ncol:
-            if int(ANSAMP)>1:
-                hist,bins,_=nrow.hist(h[i+1].data[overscan_mask].flatten(), bins=100, range=(-50,50))
-                x=(bins[1:]+bins[:-1])/2
-            elif int(ANSAMP)>10:
-                hist,bins,_=nrow.hist(h[i+1].data[overscan_mask].flatten(), bins=100, range=(-10,0))
-                x=(bins[1:]+bins[:-1])/2
-            elif int(ANSAMP)>20:
-                hist,bins,_=nrow.hist(h[i+1].data[overscan_mask].flatten(), bins=100, range=(-2,2))
-                x=(bins[1:]+bins[:-1])/2
-            else:
-                hist,bins,_=nrow.hist(h[i+1].data[overscan_mask].flatten(), bins=100, range=(-100,100))
-                x=(bins[1:]+bins[:-1])/2
-       
-           
-            #nrow.plot(x,nrow[0],label='MCM {:d} – ohdu = {:d}'.format(iMCM,i+1))
-            # gaussian fit
+            #if int(ANSAMP)>1:
+            hist,_,class_marks=plotHistogram(h[i+1].data[overscan_mask].flatten(), doPlot=False)
+            nrow.bar(class_marks,hist)
             try:
-                popt,pcov=curve_fit(gaussian1,x,hist,p0=[0,50,1000])
+                popt,pcov=curve_fit(gaussian1,class_marks,hist,p0=[0,50,1000])
                 popt=abs(popt)
-                nrow.plot(x,gaussian1(x,*popt),label="Gauss Fit $\sigma$: {:.3f} ADUs\nMCM {:d} – ohdu = {:d}".format(popt[1],iMCM,i+1))
-                noise.append(popt[1])
+                nrow.plot(class_marks,gaussian1(class_marks,*popt),c='r',label="Gauss Fit $\sigma$: {:.3f} ADUs\nMCM {:d} – ohdu = {:d}".format(popt[1],iMCM,i+1))
+                noise.append(popt[1])              
             except RuntimeError:
                 print("Error - gain fit failed" + pdfname)
                 noise.append(-1)
-            # nrow.set_legend(fontsize=13)
-            # nrow.set_xlabel("Charge [ADUs]",fontsize=12)
-            # nrow.set_ylabel("Entries",fontsize=12)
-            #nrow.set_yscale("log")
+            nrow.set_ylim(1,25e3)
+            nrow.set_yscale("log")
+            nrow.legend()
+            nrow.set_xlabel("Charge [ADUs]",fontsize=12)
+        
+            nrow.set_ylabel("Entries",fontsize=12)
             i+=1
     # to save the plot
     #pdf_filename = f'noise_'+pdfname+'_{iMCM+1}.pdf'i
@@ -120,28 +109,27 @@ def Gain(h, active_mask, iMCM, nCCDs, dataOK=True, doPlot=False, pdfname='gain')
     ANSAMP=h[1].header["ANSAMP"]
     fig, axs = plt.subplots(ncols=4,nrows=4,figsize=(15,15))
 
-    i=1
+    i=0
     for ncol in axs:
        for nrow in ncol:
         
-            hist,bins,_=nrow.hist(h[i].data[active_mask].flatten(), bins=100 ,range=(-200,1100))
-            nrow.set_yscale('log')
-            x=(bins[1:]+bins[:-1])/2
-           
-
-            try:
-                popt,pcov=curve_fit(gaussian2,x,hist,p0=[0,60,100, 300, 10])
-                plt.plot(x,gaussian2(x,*popt),label="Gain: {:.3f} ADUs/e-".format(popt[3]))
-                popt=abs(popt)
-                gain.append(popt[3])
-            except RuntimeError:
-                print("Error - gain on gainFun fit failed" + pdfname)
-                gain.append(-1)
-            plt.legend(fontsize=13)
-            plt.xlabel("Charge [ADUs]",fontsize=12)
-            plt.yscale("log")
-            plt.ylabel("Entries",fontsize=12)
-            i+=1
+        hist,_,class_marks=plotHistogram(h[i+1].data[active_mask].flatten(), doPlot=False)
+        nrow.bar(class_marks,hist)
+        try:
+            popt,pcov=curve_fit(gaussian2,class_marks,hist,p0=[0,10,1000,60,100]) #gaussian2(x,m1,s,a1,g,a2)
+            popt=abs(popt)
+            nrow.plot(class_marks,gaussian2(class_marks,*popt),c='r',label="Gauss Fit $\sigma$: {:.3f} ADUs\nMCM {:d} ohdu = {:d} \n Gain = {:.3f}".format(popt[1],iMCM,i+1, popt[3]))
+            gain.append(popt[1])              
+        except RuntimeError:
+            print("Error - gain fit failed" + pdfname)
+            gain.append(-1)
+        nrow.set_ylim(1,25e3)
+        nrow.set_yscale("log")
+        nrow.legend()
+        nrow.set_xlabel("Charge [ADUs]",fontsize=12)
+    
+        nrow.set_ylabel("Entries",fontsize=12)
+        i+=1
      
     # to save the plot
     if doPlot:
@@ -183,7 +171,7 @@ def Ser(h, active_mask, iMCM, nCCDs, dataOK, gain, doPlot, pdfname, itera=10, th
             #dataMasked = data - 1000000*mask.astype(data.dtype)
             #dataMasked = np.ma.masked_less(dataMasked, -50000)
             plt.subplot(4,4,i+1)
-            y, xb = np.histogram(dataMasked[active_mask].flatten(),range=[-0.5,2.5],bins=200)
+            y, xb = np.histogram(dataMasked[active_mask].flatten(),range=[-2,6],bins='fd')
             x = (xb[1:]+xb[:-1])/2
             plt.plot(x, y,label='MCM {:d} – ohdu = {:d}'.format(iMCM,i+1))
             try:
@@ -208,19 +196,22 @@ def Ser(h, active_mask, iMCM, nCCDs, dataOK, gain, doPlot, pdfname, itera=10, th
     return ser
 # -------------------------------------------------------------------------
 
-def plotHistogram(data):
+def plotHistogram(data, doPlot=True):
     histo, bins_edges = np.histogram(data,bins='fd',range=(-200,300))
     class_marks = (bins_edges[:-1]+bins_edges[1:])/2
-    #plt.hist(class_marks,bins=bins_edges,weights=histo)
-    plt.bar(class_marks,histo)
-    plt.yscale('log')
+    if doPlot:
+        plt.bar(class_marks,histo)
+        plt.yscale('log')
     return histo, bins_edges, class_marks
 
 def histoFit(hdu, ext, region, porDefecto=[0,3,1500, 44, 100]): #data, mean, stdDev, h1, gain, h2
-    hist,bins,class_mark=plotHistogram(hdu[ext].data[region].flatten())#, range=(median-200,median+200) )
-    plt.ylim(1,25e3)
+    hist,bins,class_mark=plotHistogram(hdu[ext].data[region].flatten())
     popt,pcov=curve_fit(gaussian2,class_mark,hist,p0=porDefecto) 
     #popt=abs(popt)
-    plt.plot(class_mark,gaussian2(class_mark,*abs(popt),linewidth=1,c='r', label=r'$\sigma$={:.2f}  gain={:.2f}'.format(popt[1],popt[3])))
+    plt.plot(class_mark,gaussian2(class_mark,*popt),linewidth=1,c='r', label=r'$\sigma$={:.2f}  gain={:.2f}'.format(abs(popt[1]),abs(popt[3])))
+    plt.ylim(1,25e3)  
+    plt.legend()
+    return popt
+
 
 
