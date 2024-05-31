@@ -42,7 +42,7 @@ def GetSingleCCDImage(hdul,LTA_channel,ColInit,NCOL,step,NrOfMCMs):
 # ------------------------------------------------------------------------------
 #
 # ---- To compute the baseline evolution in function of the row number
-def Baseline(h, overscan_mask, iMCM, nCCDs, doPlot, pdfname):
+def Baseline(h, overscan_mask, iMCM, nCCDs, doPlot=False, pdfname='none.pdf'):
     mediana = []
     plt.figure(figsize=(15,6))
     plt.xticks(fontsize=12)
@@ -59,9 +59,11 @@ def Baseline(h, overscan_mask, iMCM, nCCDs, doPlot, pdfname):
         plt.legend(fontsize=12)
     # to save the plot
     if doPlot:
-        pdf_filename = f'baseline_{pdfname}.pdf'
-        plt.savefig(pdf_filename, format='pdf')
-    plt.close()
+        #pdf_filename = f'baseline_{pdfname}.pdf'
+        #plt.savefig(pdf_filename, format='pdf')
+        plt.show()
+    else:
+        plt.close()
     return mediana
 # ---- To compute the Noise in a region-----------------------------------------
 def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
@@ -196,16 +198,16 @@ def Ser(h, active_mask, iMCM, nCCDs, dataOK, gain, doPlot, pdfname, itera=10, th
     return ser
 # -------------------------------------------------------------------------
 
-def plotHistogram(data, doPlot=True):
-    histo, bins_edges = np.histogram(data,bins='fd',range=(-200,300))
+def plotHistogram(data, range =(-200,300), doPlot=True):
+    histo, bins_edges = np.histogram(data,bins='fd',range=range)
     class_marks = (bins_edges[:-1]+bins_edges[1:])/2
     if doPlot:
         plt.bar(class_marks,histo)
         plt.yscale('log')
     return histo, bins_edges, class_marks
 
-def histoFit(hdu, ext, region, porDefecto=[0,3,1500, 44, 100]): #data, mean, stdDev, h1, gain, h2
-    hist,bins,class_mark=plotHistogram(hdu[ext].data[region].flatten())
+def histoFit(hdu, ext, region,range =(-200,300), porDefecto=[0,3,1500, 44, 100]): #data, mean, stdDev, h1, gain, h2
+    hist,bins,class_mark=plotHistogram(hdu[ext].data[region].flatten(),range=range)
     popt,pcov=curve_fit(gaussian2,class_mark,hist,p0=porDefecto) 
     #popt=abs(popt)
     plt.plot(class_mark,gaussian2(class_mark,*popt),linewidth=1,c='r', label=r'$\sigma$={:.2f}  gain={:.2f}'.format(abs(popt[1]),abs(popt[3])))
