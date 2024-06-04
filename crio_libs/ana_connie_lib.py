@@ -64,7 +64,7 @@ def Baseline(h, overscan_mask, iMCM, nCCDs, doPlot=False, pdfname='none.pdf'):
         plt.show()
     else:
         plt.close()
-    return mediana
+    return mediana # array of nCCDs x nRows
 # ---- To compute the Noise in a region-----------------------------------------
 def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
     noise = []
@@ -75,7 +75,7 @@ def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
     for ncol in axs:
        for nrow in ncol:
             #if int(ANSAMP)>1:
-            hist,_,class_marks=plotHistogram(h[i+1].data[overscan_mask].flatten(), doPlot=False)
+            hist,_,class_marks=plotHistogram(h[i+1].data[overscan_mask].flatten()/(int(h[1].header['ANSAMP'])), doPlot=False)
             nrow.bar(class_marks,hist)
             try:
                 popt,pcov=curve_fit(gaussian1,class_marks,hist,p0=[0,50,1000])
@@ -115,7 +115,7 @@ def Gain(h, active_mask, iMCM, nCCDs, dataOK=True, doPlot=False, pdfname='gain')
     for ncol in axs:
        for nrow in ncol:
         
-        hist,_,class_marks=plotHistogram(h[i+1].data[active_mask].flatten(), doPlot=False)
+        hist,_,class_marks=plotHistogram(h[i+1].data[active_mask].flatten()/(int(h[1].header['ANSAMP'])), doPlot=False)
         nrow.bar(class_marks,hist)
         try:
             popt,pcov=curve_fit(gaussian2,class_marks,hist,p0=[0,10,1000,60,100]) #gaussian2(x,m1,s,a1,g,a2)
@@ -173,7 +173,7 @@ def Ser(h, active_mask, iMCM, nCCDs, dataOK, gain, doPlot, pdfname, itera=10, th
             #dataMasked = data - 1000000*mask.astype(data.dtype)
             #dataMasked = np.ma.masked_less(dataMasked, -50000)
             plt.subplot(4,4,i+1)
-            y, xb = np.histogram(dataMasked[active_mask].flatten(),range=[-2,6],bins='fd')
+            y, xb = np.histogram(dataMasked[active_mask].flatten()/(int(h[1].header['ANSAMP'])),range=[-2,6],bins='fd')
             x = (xb[1:]+xb[:-1])/2
             plt.plot(x, y,label='MCM {:d} – ohdu = {:d}'.format(iMCM,i+1))
             try:
@@ -204,12 +204,14 @@ def plotHistogram(data, range =(-200,300), doPlot=True):
     if doPlot:
         plt.bar(class_marks,histo)
         plt.yscale('log')
+        plt.grid(True)
     return histo, bins_edges, class_marks
 
 def histoFit(hdu, ext, region,range =(-200,300), porDefecto=[0,3,1500, 44, 100]): #data, mean, stdDev, h1, gain, h2
     hist,bins,class_mark=plotHistogram(hdu[ext].data[region].flatten(),range=range)
     popt,pcov=curve_fit(gaussian2,class_mark,hist,p0=porDefecto) 
     #popt=abs(popt)
+    plt.grid(True)
     plt.plot(class_mark,gaussian2(class_mark,*popt),linewidth=1,c='r', label=r'$\sigma$={:.2f}  gain={:.2f}'.format(abs(popt[1]),abs(popt[3])))
     plt.ylim(1,25e3)  
     plt.legend()
