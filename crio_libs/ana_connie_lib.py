@@ -42,13 +42,13 @@ def GetSingleCCDImage(hdul,LTA_channel,ColInit,NCOL,step,NrOfMCMs):
 # ------------------------------------------------------------------------------
 #
 # ---- To compute the baseline evolution in function of the row number
-def Baseline(h, overscan_mask, iMCM, nCCDs, doPlot=False, pdfname='none.pdf'):
+def Baseline(h, region_mask, iMCM, nCCDs, doPlot=False, pdfname='none.pdf'):
     mediana = []
     plt.figure(figsize=(15,6))
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     for i in range(0,nCCDs):
-        m = np.median(h[i+1].data[overscan_mask], axis=1,keepdims=True)
+        m = np.median(h[i+1].data[region_mask], axis=1,keepdims=True)
         mediana.append(m)
         x = np.arange(len(m))
         plt.plot(x,m-m[0],label='ohdu = {:d} - ref = {}'.format(i+1,m[0]))
@@ -66,7 +66,7 @@ def Baseline(h, overscan_mask, iMCM, nCCDs, doPlot=False, pdfname='none.pdf'):
         plt.close()
     return mediana # array of nCCDs x nRows
 # ---- To compute the Noise in a region-----------------------------------------
-def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
+def Noise(h, region_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
     noise = []
     ANSAMP=h[1].header["ANSAMP"]
     fig, axs = plt.subplots(ncols=4,nrows=4,figsize=(15,15))
@@ -75,7 +75,7 @@ def Noise(h, overscan_mask, iMCM, nCCDs, dataOK, doPlot=False, pdfname='noise'):
     for ncol in axs:
        for nrow in ncol:
             #if int(ANSAMP)>1:
-            hist,_,class_marks=plotHistogram(h[i+1].data[overscan_mask].flatten()/(int(h[1].header['ANSAMP'])), doPlot=False)
+            hist,_,class_marks=plotHistogram(h[i+1].data[region_mask].flatten()/(int(h[1].header['ANSAMP'])), doPlot=False)
             nrow.bar(class_marks,hist)
             try:
                 popt,pcov=curve_fit(gaussian1,class_marks,hist,p0=[0,50,1000])
