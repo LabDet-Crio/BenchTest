@@ -296,3 +296,6 @@ def readObjectFromFile(filename):
     with open(filename, 'rb') as file:
         object = pickle.load(file)
     return object
+
+def funsion1():
+    return "prueba"
