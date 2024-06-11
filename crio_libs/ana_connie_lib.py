@@ -5,6 +5,7 @@ from astropy.io import fits
 from scipy.optimize import curve_fit
 from scipy import ndimage
 import math
+import pickle
 
 # ------------------------------------------------------------------------------
 #
@@ -217,7 +218,7 @@ def histoFit(hdu, ext, region,range =(-200,300), porDefecto=[0,3,1500, 44, 100])
     plt.legend()
     return popt
 
-def comp2regions(data_1,data_2,range_1=(-300,850), range_2=(-300,850),default_1=[0,13,1000,50,200],default_2=[0,8,1000,75,200], title_1="data_1", title_2="data_2"):
+def fit2regions(data_1,data_2,range_1=(-300,850), range_2=(-300,850),default_1=[0,13,1000,50,200],default_2=[0,8,1000,75,200], title_1="data_1", title_2="data_2",saveFig=False):
     fig, (hist_1, hist_2) = plt.subplots(ncols=2, figsize=(12, 4))# plt.subplots(2,1)
 
     #ansamp=int(OHDU_File[1].header['ANSAMP'])
@@ -247,6 +248,51 @@ def comp2regions(data_1,data_2,range_1=(-300,850), range_2=(-300,850),default_1=
     right = hist_2.set_yscale('log')
     right = hist_2.grid(True)
     right = hist_2.set_title(title_2)
-    plt.show()
+    if saveFig:
+        saveObject2File("fit2regions.pkl",fig)#saveFig
+        plt.close()
+    else:
+        plt.show()
     return 'ok'
 
+def Plot2Images_v2(Image,Mask,MinRange=None,MaxRange=None, colorBar_1=True, colorBar_2=True, saveFig=False):
+    try:
+        if MinRange > MaxRange:
+            Aux = MaxRange
+            MaxRange = MinRange
+            MinRange = Aux
+    except TypeError:
+        MinRange=None
+        MaxRange=None
+    
+    fig, (Datos, Mascara) = plt.subplots(ncols=2,sharex=True, sharey=True, figsize=(12, 4))# plt.subplots(2,1)
+
+   
+    if Mask.max()==1:
+        left=Datos.imshow(Image, cmap='viridis',vmin=Mask.min(),vmax=Mask.max(), origin="lower")
+    else:
+        left=Datos.imshow(Image, cmap='viridis',vmin=MinRange,vmax=MaxRange, origin="lower")
+    if colorBar_1:
+        fig.colorbar(left,ax=Datos,orientation='horizontal')
+    
+   
+    right=Mascara.imshow(Mask, cmap='viridis', vmin=MinRange,vmax=MaxRange,origin="lower")
+    if colorBar_2:
+        fig.colorbar(right, ax=Mascara,orientation='horizontal')
+
+    if saveFig:
+        saveObject2File("plot2images.pkl",fig)#saveFig
+        plt.close()
+        # print("option not available yet")
+    else:
+        plt.show()
+
+def saveObject2File(filename,object):
+    with open(filename, 'wb') as file:
+        pickle.dump(object,file)
+    return 0
+
+def readObjectFromFile(filename):
+    with open(filename, 'rb') as file:
+        object = pickle.load(file)
+    return object
